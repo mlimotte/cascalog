@@ -1,6 +1,7 @@
 (ns cascalog.tap
   (:require [cascalog.workflow :as w])
-  (:import [cascading.tuple Fields]))
+  (:import [cascading.tuple Fields]
+           [cascalog ClojurePathFilter]))
 
 ;; source can be a cascalog-tap, subquery, or cascading tap sink can
 ;; be a cascading tap, a sink function, or a cascalog-tap
@@ -15,16 +16,19 @@
   [source sink]
   (struct-map cascalog-tap :type :cascalog-tap :source source :sink sink))
 
+(defn path-filter [fn-var]
+  (ClojurePathFilter. (w/fn-spec fn-var)))
+
 (defn- patternize
   "If `pattern` is truthy, returns the supplied parent `Hfs` or `Lfs`
   tap wrapped that responds as a `TemplateTap` when used as a sink,
   and a `GlobHfs` tap when used as a source. Otherwise, acts as
   identity."
-  [scheme type path-or-file sinkmode sink-template source-pattern templatefields]
+  [scheme type path-or-file sinkmode sink-template source-pattern templatefields path-filter]
   (let [tap-maker ({:hfs w/hfs :lfs w/lfs} type)
         parent (tap-maker scheme path-or-file sinkmode)
         source (if source-pattern
-                 (w/glob-hfs scheme path-or-file source-pattern)
+                 (w/glob-hfs scheme path-or-file source-pattern path-filter)
                  parent)
         sink (if sink-template
                (w/template-tap parent sink-template templatefields)
@@ -47,14 +51,16 @@
   used as a sink.
 
   `:templatefields` - When pattern is supplied via :sink-template, this option allows a
-  subset of output fields to be used in the naming scheme."
+  subset of output fields to be used in the naming scheme.
+
+ `:path-filter` - an org.apache.hadoop.fs.PathFilter that filters source paths"
   [scheme path-or-file & {:keys [sinkmode sinkparts sink-template
-                                 source-pattern templatefields]
+                                 source-pattern templatefields path-filter]
                           :or {templatefields Fields/ALL}}]
   (-> scheme
       (w/set-sinkparts! sinkparts)
       (patternize :hfs path-or-file sinkmode
-                  sink-template source-pattern templatefields)))
+                  sink-template source-pattern templatefields path-filter)))
 
 (defn lfs-tap
   "Returns a Cascading Lfs tap with support for the supplied scheme,
@@ -72,12 +78,13 @@
   used as a sink.
 
   `:templatefields` - When pattern is supplied via :sink-template, this option allows a
-  subset of output fields to be used in the naming scheme."
-  
+  subset of output fields to be used in the naming scheme.
+
+  `:path-filter` - an org.apache.hadoop.fs.PathFilter that filters source paths"
   [scheme path-or-file & {:keys [sinkmode sinkparts sink-template
-                                 source-pattern templatefields]
+                                 source-pattern templatefields path-filter]
                           :or {templatefields Fields/ALL}}]
   (-> scheme
       (w/set-sinkparts! sinkparts)
       (patternize :lfs path-or-file sinkmode
-                  sink-template source-pattern templatefields)))
+                  sink-template source-pattern templatefields path-filter)))
