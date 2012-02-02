@@ -1,7 +1,6 @@
 (ns cascalog.tap
   (:require [cascalog.workflow :as w])
-  (:import [cascading.tuple Fields]
-           [cascalog ClojurePathFilter]))
+  (:import [cascading.tuple Fields]))
 
 ;; source can be a cascalog-tap, subquery, or cascading tap sink can
 ;; be a cascading tap, a sink function, or a cascalog-tap
@@ -24,15 +23,18 @@
   tap wrapped that responds as a `TemplateTap` when used as a sink,
   and a `GlobHfs` tap when used as a source. Otherwise, acts as
   identity."
-  [scheme type path-or-file sinkmode sink-template source-pattern templatefields path-filter]
+  [scheme type path-or-file sinkmode sink-template
+   source-pattern templatefields path-filter]
   (let [tap-maker ({:hfs w/hfs :lfs w/lfs} type)
         parent (tap-maker scheme path-or-file sinkmode)
         source (if source-pattern
-                 (w/glob-hfs scheme path-or-file source-pattern path-filter)
+                 (if path-filter
+                   (w/glob-hfs scheme path-or-file source-pattern path-filter)
+                   (w/glob-hfs scheme path-or-file source-pattern))
                  parent)
-        sink (if sink-template
-               (w/template-tap parent sink-template templatefields)
-               parent)]
+        sink   (if sink-template
+                 (w/template-tap parent sink-template templatefields)
+                 parent)]
     (mk-cascalog-tap source sink)))
 
 (defn hfs-tap

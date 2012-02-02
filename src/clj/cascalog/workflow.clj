@@ -18,14 +18,15 @@
    :exclude [group-by count first filter mapcat map identity min max])
   (:use [cascalog.debug :only (debug-print)]
         [clojure.tools.macro :only (name-with-attributes)]
-        [jackknife.core :only (safe-assert)]
+        [jackknife.core :only (safe-assert throw-illegal)]
         [jackknife.seq :only (collectify)])
   (:require [cascalog.conf :as conf]
             [cascalog.util :as u]
             [hadoop-util.core :as hadoop])
-  (:import [cascalog Util]
+  (:import [cascalog Util ClojurePathFilter]
            [java.io File]
            [java.util ArrayList]
+           [org.apache.hadoop.fs Path PathFilter]
            [cascading.tuple Tuple TupleEntry Fields]
            [cascading.scheme Scheme TextLine SequenceFile]
            [cascading.tap Hfs Lfs GlobHfs Tap TemplateTap SinkMode]
@@ -519,14 +520,23 @@ identity.  identity."
            (path path-or-file)
            (sink-mode sinkmode))))
 
+(defn resolve-path-filter [fn-var]
+  (cond
+   (instance? PathFilter fn-var) fn-var
+   (var? fn-var) (ClojurePathFilter. (fn-spec fn-var))
+   :else (throw-illegal ":path-filter must be a Var or a PathFilter; "
+                        fn-var
+                        " is neither.")))
+
 (defn glob-hfs
   ([^Scheme scheme path-or-file source-pattern]
-    (GlobHfs. scheme (str (path path-or-file)
-                          source-pattern)))
+     (GlobHfs. scheme (str (path path-or-file)
+                           source-pattern)))
   ([^Scheme scheme path-or-file source-pattern path-filter]
-    (GlobHfs. scheme (str (path path-or-file)
-                          source-pattern)
-                          path-filter)))
+     (GlobHfs. scheme
+               (str (path path-or-file)
+                    source-pattern)
+               (resolve-path-filter path-filter))))
 
 (defn template-tap
   ([^Hfs parent sink-template]
