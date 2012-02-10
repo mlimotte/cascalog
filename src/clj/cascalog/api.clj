@@ -329,7 +329,8 @@ as well."
     (safe-assert (set/subset? (set select-fields) (set outfields))
                  (str "Cannot select " select-fields " from " outfields))
     (merge query
-           {:pipe (w/assemble (:pipe query) (w/select select-fields))
+           {:pipe (w/assemble (:pipe query)
+                              (w/select select-fields))
             :outfields select-fields})))
 
 (defmethod select-fields :cascalog-tap [cascalog-tap fields]
@@ -337,7 +338,9 @@ as well."
 
 (defn name-vars [gen vars]
   (let [vars (collectify vars)]
-    (<- vars (gen :>> vars) (:distinct false))))
+    (<- vars
+        (gen :>> vars)
+        (:distinct false))))
 
 ;; Defining custom operations
 

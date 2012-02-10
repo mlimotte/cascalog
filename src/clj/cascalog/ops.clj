@@ -77,7 +77,7 @@
   (re-seq pattern str))
 
 (defparallelagg count
-  :init-var #'impl/one
+  :init-var    #'impl/one
   :combine-var #'+)
 
 (def sum (each impl/sum-parallel))
